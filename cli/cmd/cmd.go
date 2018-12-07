@@ -100,6 +100,8 @@ func New(driver api.API, config utils.ConfigReader, logControl logging.LogContro
 		cli.StringSliceFlag{"isvcs-start", convertToStringSlice(defaultOps.StartISVCS), "isvcs to start on agent"},
 		cli.IntFlag{"isvcs-zk-id", defaultOps.IsvcsZKID, "zookeeper id when running in a cluster"},
 		cli.StringSliceFlag{"isvcs-zk-quorum", convertToStringSlice(defaultOps.IsvcsZKQuorum), "isvcs zookeeper host quorum (e.g. -isvcs-zk-quorum zk1@localhost:2888:3888)"},
+		cli.StringFlag{"isvcs-zk-username", defaultOps.IsvcsZKUsername, "isvcs zookeeper username"},
+		cli.StringFlag{"isvcs-zk-passwd", defaultOps.IsvcsZKPasswd, "isvcs zookeeper password"},
 		cli.StringSliceFlag{"isvcs-env", convertToStringSlice(defaultOps.IsvcsENV), "internal-service environment variable: ISVC:KEY=VAL"},
 		cli.StringSliceFlag{"tls-ciphers", convertToStringSlice(defaultOps.TLSCiphers), "list of supported TLS ciphers for HTTP"},
 		cli.StringFlag{"tls-min-version", string(defaultOps.TLSMinVersion), "mininum TLS version for HTTP"},
@@ -157,9 +159,11 @@ func New(driver api.API, config utils.ConfigReader, logControl logging.LogContro
 		cli.Float64Flag{"backup-estimated-compression", defaultOps.BackupEstimatedCompression, "Estimate of compression rate to use when calculating backup estimates"},
 		cli.StringFlag{"auth0-domain", defaultOps.Auth0Domain, "Domain configured for tenant in Auth0. Ref: https://auth0.com/docs/getting-started/the-basics#domain"},
 		cli.StringFlag{"auth0-audience", defaultOps.Auth0Audience, "Audience configured for application (?) in Auth0."},
-		cli.StringFlag{"auth0-group", defaultOps.Auth0Group, "Group configured for application in Auth0"},
+		cli.StringSliceFlag{"auth0-group", convertToStringSlice(defaultOps.Auth0Group), "Group(s) configured for application in Auth0. A comma-separated list."},
 		cli.StringFlag{"auth0-client-id", defaultOps.Auth0ClientID, "Client ID of Auth0 application"},
 		cli.StringFlag{"auth0-scope", defaultOps.Auth0Scope, "Scope to request in Auth0"},
+		cli.StringFlag{"keyproxy-json-server", defaultOps.KeyProxyJsonServer, "URL for API key server (cc auth token endpoint)"},
+		cli.StringFlag{"keyproxy-listen-port", defaultOps.KeyProxyListenPort, "Port for API key proxy to listen on"},
 	}
 
 	c.initVersion()
@@ -227,6 +231,7 @@ func getRuntimeOptions(cfg utils.ConfigReader, ctx *cli.Context) config.Options 
 	options := config.Options{
 		GCloud:                     cfg.BoolVal("GCLOUD", false),
 		StartZK:                    cfg.BoolVal("START_ZK", true),
+		StartAPIKeyProxy:           cfg.BoolVal("START_API_KEY_PROXY", false),
 		BigTableMetrics:            cfg.BoolVal("BIGTABLE_METRICS", false),
 		DockerRegistry:             ctx.GlobalString("docker-registry"),
 		NFSClient:                  ctx.GlobalString("nfs-client"),
@@ -286,6 +291,8 @@ func getRuntimeOptions(cfg utils.ConfigReader, ctx *cli.Context) config.Options 
 		StartISVCS:                 ctx.GlobalStringSlice("isvcs-start"),
 		IsvcsZKID:                  ctx.GlobalInt("isvcs-zk-id"),
 		IsvcsZKQuorum:              ctx.GlobalStringSlice("isvcs-zk-quorum"),
+		IsvcsZKUsername:            ctx.GlobalString("isvcs-zk-username"),
+		IsvcsZKPasswd:              ctx.GlobalString("isvcs-zk-passwd"),
 		TLSCiphers:                 ctx.GlobalStringSlice("tls-ciphers"),
 		TLSMinVersion:              ctx.GlobalString("tls-min-version"),
 		DockerLogDriver:            ctx.GlobalString("log-driver"),
@@ -309,9 +316,11 @@ func getRuntimeOptions(cfg utils.ConfigReader, ctx *cli.Context) config.Options 
 		BackupMinOverhead:          ctx.String("backup-min-overhead"),
 		Auth0Domain:                ctx.String("auth0-domain"),
 		Auth0Audience:              ctx.String("auth0-audience"),
-		Auth0Group:                 ctx.String("auth0-group"),
+		Auth0Group:                 ctx.GlobalStringSlice("auth0-group"),
 		Auth0ClientID:              ctx.String("auth0-client-id"),
 		Auth0Scope:                 ctx.String("auth0-scope"),
+		KeyProxyJsonServer:         ctx.String("keyproxy-json-server"),
+		KeyProxyListenPort:         ctx.String("keyproxy-listen-port"),
 	}
 
 	// Long story, but due to the way codegangsta handles bools and the way we start system services vs

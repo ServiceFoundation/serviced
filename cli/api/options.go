@@ -129,6 +129,7 @@ func GetDefaultOptions(cfg utils.ConfigReader) config.Options {
 		OutboundIP:                 cfg.StringVal("OUTBOUND_IP", ""),
 		GCloud:                     cfg.BoolVal("GCLOUD", false),
 		StartZK:                    cfg.BoolVal("START_ZK", true),
+		StartAPIKeyProxy:           cfg.BoolVal("START_API_KEY_PROXY", false),
 		BigTableMetrics:            cfg.BoolVal("BIGTABLE_METRICS", false),
 		DockerDNS:                  cfg.StringSlice("DOCKER_DNS", []string{}),
 		Master:                     cfg.BoolVal("MASTER", false),
@@ -172,6 +173,8 @@ func GetDefaultOptions(cfg utils.ConfigReader) config.Options {
 		IsvcsENV:                   cfg.StringNumberedList("ISVCS_ENV", []string{}),
 		IsvcsZKID:                  cfg.IntVal("ISVCS_ZOOKEEPER_ID", 0),
 		IsvcsZKQuorum:              cfg.StringSlice("ISVCS_ZOOKEEPER_QUORUM", []string{}),
+		IsvcsZKUsername:            cfg.StringVal("ISVCS_ZOOKEEPER_USERNAME", ""),
+		IsvcsZKPasswd:              cfg.StringVal("ISVCS_ZOOKEEPER_PASSWD", ""),
 		TLSCiphers:                 cfg.StringSlice("TLS_CIPHERS", utils.GetDefaultCiphers("http")),
 		TLSMinVersion:              cfg.StringVal("TLS_MIN_VERSION", utils.DefaultTLSMinVersion),
 		DockerLogDriver:            cfg.StringVal("DOCKER_LOG_DRIVER", "json-file"),
@@ -197,9 +200,12 @@ func GetDefaultOptions(cfg utils.ConfigReader) config.Options {
 		// Auth0 configuration parameters. Default to empty strings - must edit in serviced.conf to configure for auth0.
 		Auth0Domain:   cfg.StringVal("AUTH0_DOMAIN", ""),
 		Auth0Audience: cfg.StringVal("AUTH0_AUDIENCE", ""),
-		Auth0Group:    cfg.StringVal("AUTH0_GROUP", ""),
+		Auth0Group:    cfg.StringSlice("AUTH0_GROUP", []string{}),
 		Auth0ClientID: cfg.StringVal("AUTH0_CLIENT_ID", ""),
 		Auth0Scope:    cfg.StringVal("AUTH0_SCOPE", ""),
+		// Parameters for api-key-proxy isvc configuration
+		KeyProxyJsonServer: cfg.StringVal("KEYPROXY_JSON_SERVER", ""),
+		KeyProxyListenPort: cfg.StringVal("KEYPROXY_LISTEN_PORT", ":6443"),
 	}
 
 	options.Endpoint = cfg.StringVal("ENDPOINT", "")

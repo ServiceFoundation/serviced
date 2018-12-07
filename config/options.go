@@ -104,6 +104,8 @@ type Options struct {
 	IsvcsENV                   []string          // Isvcs env variables
 	IsvcsZKID                  int               // Zookeeper server id when running as a quorum
 	IsvcsZKQuorum              []string          // Members of the zookeeper quorum
+	IsvcsZKUsername            string            // Zookeeper username required for quorum authentication
+	IsvcsZKPasswd              string            // Zookeeper password required for quorum authentication
 	TLSCiphers                 []string          // List of tls ciphers supported for http
 	TLSMinVersion              string            // Minimum TLS version supported for http
 	DockerLogDriver            string            // Which log driver to use with containers
@@ -128,12 +130,16 @@ type Options struct {
 	BackupEstimatedCompression float64           // Best guess for tgz compression ratio (uncompressed size / compressed size) used to determine whether sufficient disk space is available for taking a backup
 	BackupMinOverhead          string            // Warn user if estimated backup size would leave less than this amount of space free
 	StartZK                    bool              // Should ZooKeeper ISVC be started
+	StartAPIKeyProxy           bool              // Should API Key Proxy ISVC be started
 	BigTableMetrics            bool              // Should serviced metrics be stored in gcp bigtable
 	Auth0Domain                string            // Domain configured for tenant in Auth0. Ref: https://auth0.com/docs/getting-started/the-basics#domain
 	Auth0Audience              string            // Audience configured for application (?) in Auth0
-	Auth0Group                 string            // Group membership required in Auth0 token for login
+	Auth0Group                 []string          // Group membership(s) required in Auth0 token for login, comma separated list
 	Auth0ClientID              string            // ClientID of Auth0 Application
 	Auth0Scope                 string            // Auth0 Scope for request.
+	KeyProxyJsonServer         string            // Address of api-key-server endpoint for getting CC Access tokens
+	KeyProxyListenPort         string            // Port where api-key-proxy will listen
+
 }
 
 // GetOptions returns a COPY of the global options struct

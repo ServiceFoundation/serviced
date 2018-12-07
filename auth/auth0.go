@@ -17,12 +17,33 @@ import (
 )
 
 type jwtAuth0Claims struct {
-	Issuer    string   `json:"iss,omitempty"`
-	IssuedAt  int64    `json:"iat,omitempty"`
-	ExpiresAt int64    `json:"exp,omitempty"`
-	Audience  []string `json:"aud,omitempty"`
-	Groups    []string `json:"https://zenoss.com/groups,omitempty"`
-	Subject   string   `json:"sub,omitempty"`
+	Issuer    string      `json:"iss,omitempty"`
+	IssuedAt  int64       `json:"iat,omitempty"`
+	ExpiresAt int64       `json:"exp,omitempty"`
+	Audience  interface{} `json:"aud,omitempty"`
+	Groups    []string    `json:"https://zenoss.com/groups,omitempty"`
+	Subject   string      `json:"sub,omitempty"`
+}
+
+// Parse the interface{} that populates Audience - we get string from some certs, and an array of strings (which parses as an array of interfaces) from others.
+func (t *jwtAuth0Claims) CheckAudience(expected string) bool {
+	// String
+	if audienceString, ok := t.Audience.(string); ok {
+		return audienceString == expected
+	}
+	// Array of strings - not likely to show up, but here for completeness
+	if audienceStringArray, ok := t.Audience.([]string); ok {
+	    return utils.StringInSlice(expected, audienceStringArray)
+	}
+	// Array of interfaces (which is really an array of strings
+	if audienceIterfaceArray, ok := t.Audience.([]interface{}); ok {
+		// Convert to string array
+		if audienceStringArray, ok := utils.InterfaceArrayToStringArray(audienceIterfaceArray); ok {
+			return utils.StringInSlice(expected, audienceStringArray)
+		}
+	}
+	log.Error("Unexpected type for Audience in JWT claims")
+	return false
 }
 
 func (t *jwtAuth0Claims) Valid() error {
@@ -34,9 +55,11 @@ func (t *jwtAuth0Claims) Valid() error {
 	if t.Issuer != expectedIssuer {
 		return ErrAuth0TokenBadIssuer
 	}
-	if !utils.StringInSlice(opts.Auth0Audience, t.Audience) {
+
+	if !t.CheckAudience(opts.Auth0Audience) {
 		return ErrAuth0TokenBadAudience
 	}
+
 	return nil
 }
 
@@ -72,12 +95,19 @@ func (t *jwtAuth0Claims) User() string {
 
 func (t *jwtAuth0Claims) HasAdminAccess() bool {
 	opts := config.GetOptions()
-	auth0Group := opts.Auth0Group
-	if !utils.StringInSlice(auth0Group, t.Groups) {
-		glog.Warning("Auth0 Admin access denied - '" + auth0Group + "' not found in Groups.")
-		return false
+	// the groups defined in the config; []string
+	groups := opts.Auth0Group
+	found := false
+	for _, group := range groups {
+		if utils.StringInSlice(strings.TrimSpace(group), t.Groups) {
+			found = true
+			break
+		}
 	}
-	return true
+	if !found {
+		glog.Warning("Auth0 Admin access denied - [" + strings.Join(groups, ",") + "] not found in Groups.")
+	}
+	return found
 }
 
 type JSONWebkeys struct {
@@ -175,21 +205,21 @@ func ParseAuth0Token(token string) (Auth0Token, error) {
 	parsed, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
 		// Validate the algorithm matches the key
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-			glog.Warning("error getting RSA key from PEM: ", ErrInvalidSigningMethod)
+			log.Debugf("error getting RSA key from PEM: ", ErrInvalidSigningMethod.Error())
 			return nil, ErrInvalidSigningMethod
 		}
 
 		// extract public key from token
 		key, err := getRSAPublicKey(token)
 		if err != nil {
-			glog.Warning("error getting RSA key from PEM: ", err)
+			log.WithError(err).Debugf("error getting RSA key from PEM")
 			return nil, fmt.Errorf("error getting RSA key from PEM: %v\n", err)
 		}
 		return key, nil
 	})
 	if err != nil {
 		if verr, ok := err.(*jwt.ValidationError); ok {
-			glog.Warning("Validation error from jwt.ParseWIthClaims(): ", verr)
+			log.WithError(verr).Debug("Validation error from jwt.ParseWIthClaims()")
 			if verr.Inner != nil && (verr.Inner == ErrIdentityTokenExpired || verr.Inner == ErrIdentityTokenBadSig) {
 				return nil, verr.Inner
 			}
@@ -220,4 +250,13 @@ func ParseAuth0Token(token string) (Auth0Token, error) {
 	}
 	glog.Warning("ParseAuth0Token: ", ErrIdentityTokenInvalid)
 	return nil, ErrIdentityTokenInvalid
+}
+
+func Auth0IsConfigured() bool {
+	opts := config.GetOptions()
+	return len(opts.Auth0Scope) > 0 &&
+		len(opts.Auth0ClientID) > 0 &&
+		len(opts.Auth0Audience) > 0 &&
+		len(opts.Auth0Domain) > 0 &&
+		len(opts.Auth0Group) > 0
 }
